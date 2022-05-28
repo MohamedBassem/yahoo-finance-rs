@@ -1,13 +1,13 @@
-use async_tungstenite::tungstenite::Message;
+use async_tungstenite::tungstenite::Message as TMessage;
 use base64::decode;
 use futures::{ future, Stream, SinkExt, StreamExt };
-use protobuf::parse_from_bytes;
+use async_tungstenite::async_std::connect_async;
+use protobuf::Message;
 use serde::Serialize;
 use std::sync::{ mpsc, Arc, Mutex };
 
 use crate::{ TradingSession };
 use crate::yahoo::{ PricingData, PricingData_MarketHoursType };
-use async_tungstenite::async_std::connect_async;
 
 use super::{ Quote };
 
@@ -51,7 +51,7 @@ impl Streamer {
 
       // send the symbols we are interested in streaming
       let message = serde_json::to_string(&Subs { subscribe: self.subs.clone() }).unwrap();
-      tx.send(Message::Text(message)).unwrap();
+      tx.send(TMessage::Text(message)).unwrap();
 
       // spawn a separate thread for sending out messages
       let shutdown = self.shutdown.clone();
@@ -72,16 +72,16 @@ impl Streamer {
       source
          .filter_map(move |msg| {
             match msg.unwrap() {
-               Message::Ping(_) => { pong_tx.send(Message::Pong("pong".as_bytes().to_vec())).unwrap(); },
-               Message::Close(_) => { *(shutdown.lock().unwrap()) = true; },
-               Message::Text(value) => { return future::ready(Some(value)); },
-               Message::Binary(value) => { return future::ready(Some(String::from_utf8(value).unwrap())); },
+               TMessage::Ping(_) => { pong_tx.send(TMessage::Pong("pong".as_bytes().to_vec())).unwrap(); },
+               TMessage::Close(_) => { *(shutdown.lock().unwrap()) = true; },
+               TMessage::Text(value) => { return future::ready(Some(value)); },
+               TMessage::Binary(value) => { return future::ready(Some(String::from_utf8(value).unwrap())); },
                _ => {}
             };
             return future::ready(None)
          })
          .map(move |msg| {
-            let data = parse_from_bytes::<PricingData>(&decode(msg).unwrap()).unwrap();
+            let data = PricingData::parse_from_bytes(&decode(msg).unwrap()).unwrap();
 
             Quote {
                symbol: data.id.to_string(),

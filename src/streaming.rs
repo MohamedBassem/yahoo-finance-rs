@@ -1,12 +1,13 @@
+use async_tungstenite::tungstenite::Message;
 use base64::decode;
 use futures::{ future, Stream, SinkExt, StreamExt };
 use protobuf::parse_from_bytes;
 use serde::Serialize;
 use std::sync::{ mpsc, Arc, Mutex };
-use tokio_tungstenite::{ connect_async, tungstenite::protocol::Message };
 
 use crate::{ TradingSession };
 use crate::yahoo::{ PricingData, PricingData_MarketHoursType };
+use async_tungstenite::async_std::connect_async;
 
 use super::{ Quote };
 

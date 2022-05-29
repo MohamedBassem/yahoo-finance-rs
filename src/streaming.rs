@@ -4,7 +4,8 @@ use futures::{ future, Stream, SinkExt, StreamExt };
 use async_tungstenite::async_std::connect_async;
 use protobuf::Message;
 use serde::Serialize;
-use std::sync::{ mpsc, Arc, Mutex };
+use std::sync::{ Arc, Mutex };
+use tokio::sync::mpsc;
 
 use crate::{ TradingSession };
 use crate::yahoo::{ PricingData, PricingData_MarketHoursType };
@@ -44,7 +45,7 @@ impl Streamer {
    }
 
    pub async fn stream(&self) -> impl Stream<Item = Quote> {
-      let (tx, rx) = mpsc::channel();
+      let (tx, mut rx) = mpsc::unbounded_channel();
 
       let (stream, _) = connect_async("wss://streamer.finance.yahoo.com").await.unwrap();
       let (mut sink, source) = stream.split();
@@ -62,7 +63,7 @@ impl Streamer {
 
             // we're still running - so get a message and send it out.
             // TODO - change this to WAIT on receive so that we don't block shutdown
-            let msg = rx.recv().unwrap();
+            let msg = rx.recv().await.unwrap();
             sink.send(msg).await.unwrap();
          }
       });

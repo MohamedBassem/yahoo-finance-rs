@@ -63,8 +63,11 @@ impl Streamer {
 
             // we're still running - so get a message and send it out.
             // TODO - change this to WAIT on receive so that we don't block shutdown
-            let msg = rx.recv().await.unwrap();
-            sink.send(msg).await.unwrap();
+            if let Some(msg) = rx.recv().await {
+               sink.send(msg).await.unwrap();
+            } else {
+               break;
+            }
          }
       });
 
